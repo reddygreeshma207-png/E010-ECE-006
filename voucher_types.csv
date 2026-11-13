@@ -1,0 +1,5 @@
+type_id,code_prefix,kind,quantity,unit,price_rs,max_devices
+VT-01,T60,TIME,60,minutes,20.00,2
+VT-02,T180,TIME,180,minutes,50.00,3
+VT-03,D100,DATA,100,MB,30.00,1
+VT-04,D500,DATA,500,MB,99.00,2
