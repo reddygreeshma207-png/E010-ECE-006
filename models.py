@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 import math
 
@@ -6,21 +5,23 @@ import math
 class VoucherType:
 
     def __init__(self, prefix, voucher_type, quantity,
-                 price, max_devices):
+                 price, max_devices, type_id=None):
 
         self.prefix = prefix
         self.voucher_type = voucher_type.upper()
         self.quantity = quantity
         self.price = price
         self.max_devices = max_devices
+        self.type_id = type_id          # NEW: "VT-01" ... needed for the report
 
 
 class Voucher:
 
-    def __init__(self, code, voucher_type):
+    def __init__(self, code, voucher_type, issued_at=None):
 
         self.code = code
         self.voucher_type = voucher_type
+        self.issued_at = issued_at      # NEW: needed for unused_vouchers.csv
 
         self.remaining_balance = voucher_type.quantity
         self.activated = False
@@ -28,6 +29,7 @@ class Voucher:
         self.expiry_time = None
 
         self.active_devices = set()
+        self.devices_used = set()       # NEW: every MAC that ever logged in
 
     def activate(self, login_time):
 
@@ -47,6 +49,7 @@ class Voucher:
 
         return current_time < self.expiry_time
 
+    # ---- original methods (unchanged, so nothing that uses them breaks) ----
     def consume_time(self, minutes):
 
         if self.voucher_type.voucher_type != "TIME":
@@ -76,3 +79,25 @@ class Voucher:
 
         self.remaining_balance -= charged_mb
         return True
+
+    # ---- NEW methods: cap at the remaining balance instead of refusing ----
+    # (BR-02 / BR-03: a session or event that would exceed the balance is
+    #  cut exactly when the balance reaches zero, so we charge what is left.)
+    def charge_minutes(self, minutes):
+        """Deduct minutes, never below 0. Returns minutes actually charged."""
+        charged = max(0, min(minutes, self.remaining_balance))
+        self.remaining_balance -= charged
+        return charged
+
+    def charge_mb(self, mb):
+        """Round the event UP to the next MB (BR-06), deduct, never below 0.
+        Returns MB actually charged."""
+        charged = max(0, min(math.ceil(mb), self.remaining_balance))
+        self.remaining_balance -= charged
+        return charged
+
+    def is_exhausted(self):
+        return self.remaining_balance <= 0
+
+    def consumed(self):
+        return self.voucher_type.quantity - self.remaining_balance
