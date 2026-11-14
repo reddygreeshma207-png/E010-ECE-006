@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import math
 
+EPS = 1e-8   # balances below this are treated as zero (float safety)
+
 
 class VoucherType:
 
@@ -23,7 +25,7 @@ class Voucher:
         self.voucher_type = voucher_type
         self.issued_at = issued_at      # NEW: needed for unused_vouchers.csv
 
-        self.remaining_balance = voucher_type.quantity
+        self.remaining_balance = float(voucher_type.quantity)
         self.activated = False
         self.activation_time = None
         self.expiry_time = None
@@ -84,20 +86,27 @@ class Voucher:
     # (BR-02 / BR-03: a session or event that would exceed the balance is
     #  cut exactly when the balance reaches zero, so we charge what is left.)
     def charge_minutes(self, minutes):
-        """Deduct minutes, never below 0. Returns minutes actually charged."""
-        charged = max(0, min(minutes, self.remaining_balance))
+        """Deduct minutes (may be fractional while a session is running),
+        never below 0. Returns the amount actually charged."""
+        charged = max(0.0, min(minutes, self.remaining_balance))
         self.remaining_balance -= charged
+        if self.remaining_balance <= EPS:
+            self.remaining_balance = 0.0
         return charged
 
-    def charge_mb(self, mb):
-        """Round the event UP to the next MB (BR-06), deduct, never below 0.
-        Returns MB actually charged."""
-        charged = max(0, min(math.ceil(mb), self.remaining_balance))
+    def charge_mb(self, mb, round_up=True):
+        """Deduct MB, never below 0. round_up=True rounds the event up to the
+        next whole MB first (BR-06 as written); round_up=False deducts the raw
+        MB. Returns the MB actually charged."""
+        amount = math.ceil(mb) if round_up else mb
+        charged = max(0.0, min(amount, self.remaining_balance))
         self.remaining_balance -= charged
+        if self.remaining_balance <= EPS:
+            self.remaining_balance = 0.0
         return charged
 
     def is_exhausted(self):
-        return self.remaining_balance <= 0
+        return self.remaining_balance <= EPS
 
     def consumed(self):
         return self.voucher_type.quantity - self.remaining_balance

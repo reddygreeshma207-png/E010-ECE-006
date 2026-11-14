@@ -31,6 +31,11 @@ class VoucherManager:
         self.vouchers = {}
         self.counters = {}
         self.types_by_id = {}          # NEW: "VT-01" -> VoucherType
+        self.verbose = True            # False = no console messages
+
+    def _say(self, message):
+        if self.verbose:
+            print(message)
 
     def register_type(self, prefix, voucher_type,
                       quantity, price, max_devices, type_id=None):
@@ -40,37 +45,37 @@ class VoucherManager:
         # type checks first, so bad input gives a friendly error, not a crash
         if isinstance(quantity, bool) or isinstance(price, bool) \
                 or isinstance(max_devices, bool):
-            print("Error: Invalid numeric values!")
+            self._say("Error: Invalid numeric values!")
             return False
 
         if not isinstance(max_devices, int):
-            print("Error: Device limit must be an integer!")
+            self._say("Error: Device limit must be an integer!")
             return False
 
         if not isinstance(quantity, (int, float)):
-            print("Error: Invalid quantity!")
+            self._say("Error: Invalid quantity!")
             return False
 
         if not isinstance(price, (int, float)):
-            print("Error: Invalid price!")
+            self._say("Error: Invalid price!")
             return False
 
         voucher_type = voucher_type.upper()
 
         if not prefix.isalnum():
-            print("Error: Prefix must be alphanumeric!")
+            self._say("Error: Prefix must be alphanumeric!")
             return False
 
         if voucher_type not in ["TIME", "DATA"]:
-            print("Error: Invalid voucher type!")
+            self._say("Error: Invalid voucher type!")
             return False
 
         if prefix in self.voucher_types:
-            print("Error: Prefix already registered!")
+            self._say("Error: Prefix already registered!")
             return False
 
         if quantity <= 0 or price < 0 or max_devices <= 0:
-            print("Error: Invalid voucher values!")
+            self._say("Error: Invalid voucher values!")
             return False
 
         if isinstance(quantity, float) and quantity.is_integer():
@@ -86,7 +91,7 @@ class VoucherManager:
         if type_id:
             self.types_by_id[type_id] = new_type
 
-        print("Voucher type registered successfully!")
+        self._say("Voucher type registered successfully!")
         return True
 
     def issue_voucher(self, prefix):
@@ -94,7 +99,7 @@ class VoucherManager:
         prefix = prefix.upper()
 
         if prefix not in self.voucher_types:
-            print("Error: Voucher type not found!")
+            self._say("Error: Voucher type not found!")
             return None
 
         self.counters[prefix] += 1
@@ -108,7 +113,7 @@ class VoucherManager:
 
         self.vouchers[code] = voucher
 
-        print("Voucher issued successfully:", code)
+        self._say("Voucher issued successfully: " + code)
 
         return voucher
 
@@ -172,25 +177,25 @@ class VoucherManager:
         return "ACTIVE"
 
     def report_rows(self, date_str, now=None):
-        """Vouchers activated on date_str, ordered by voucher_code (BR-07)."""
+        """Vouchers activated on date_str, ordered by voucher_code (BR-07).
+        `now` is the moment status is judged (the engine passes end of day)."""
         rows = []
         for code in sorted(self.vouchers):
             v = self.vouchers[code]
             if v.activated and v.activation_time.strftime("%Y-%m-%d") == date_str:
-                kind = v.voucher_type.voucher_type
-                fmt = str if kind == "TIME" else (lambda n: f"{n:.1f}")
                 rows.append([
-                    date_str, code, v.voucher_type.type_id, kind,
+                    date_str, code, v.voucher_type.type_id,
+                    v.voucher_type.voucher_type,
                     fmt_ts(v.activation_time),
-                    fmt(v.consumed()), fmt(v.remaining_balance),
+                    round(v.consumed(), 6), round(v.remaining_balance, 6),
                     len(v.devices_used),
-                    f"{v.voucher_type.price:.2f}",
+                    float(v.voucher_type.price),
                     self.status(v, now)])
         return rows
 
     def unused_rows(self):
         return [[code, v.voucher_type.type_id, fmt_ts(v.issued_at)]
-                for code, v in sorted(self.vouchers.items())
+                for code, v in self.vouchers.items()      # issue order
                 if not v.activated]
 
     def write_voucher_report(self, path, rows):

@@ -6,25 +6,26 @@ Language: **Python 3.10+**, standard library only.
 
 **Team:** Greeshma Reddy R (voucher management) · Gowthami J (session management)
 
-## Files
-| File | Purpose |
-|---|---|
-| `models.py` | `VoucherType`, `Voucher` (balances, activation, 24 h validity, charging) |
-| `voucher_manager.py` | Loads voucher types and vouchers, activation, status, `voucher_report.csv`, `unused_vouchers.csv` |
-| `session_engine_corrected_v3.py` | LOGIN/LOGOUT/USAGE processing, device limit, idle timeout, session log, errors |
-| `main.py` | Reads `commands.txt` and runs the voucher commands |
-| `tests/test_vouchers.py` | Unit tests for the voucher part |
-| `commands.txt`, `voucher_types.csv`, `vouchers.csv`, `events.csv` | Sample input |
-| `Design_Document.pdf`, `DECISIONS.md` | Design document and decision log |
-
 ## How to run
 ```
-python session_engine_corrected_v3.py        # full run: writes the four output CSVs
-python -m unittest discover -s tests -v      # voucher tests (8 tests)
+python main.py                               # reads commands.txt, writes the four output CSVs next to it
+python -m unittest discover -s tests -v      # 22 tests (voucher part + session part + full sample run)
 ```
+`python main.py <folder>` runs on another folder that contains `commands.txt` and the CSV files (for example the hidden input set).
+
+## Files
+| File | Purpose | Owner |
+|---|---|---|
+| `models.py` | `VoucherType`, `Voucher`: balances, activation, 24 h validity, charging | Greeshma |
+| `voucher_manager.py` | Loads voucher types and vouchers, activation, expiry check, voucher report, unused list | Greeshma |
+| `session_engine.py` | LOGIN/USAGE/LOGOUT, device limit, idle timeout, TIME exhaustion, session log, errors | Gowthami |
+| `main.py` | Reads `commands.txt`, calls both parts, writes the CSVs | Both |
+| `tests/test_vouchers.py`, `tests/test_sessions.py` | Unit tests and a full sample run | Both |
+| `Design_Document.pdf`, `DECISIONS.md` | Design document (BR register) and decision log | Both |
+| `commands.txt`, `voucher_types.csv`, `vouchers.csv`, `events.csv` | Sample input | — |
 
 ## Input
-`commands.txt` lines (separated by `|`): `LOAD_VOUCHER_TYPES`, `ISSUE_VOUCHERS`, `PROCESS_EVENTS`, `REPORT|YYYY-MM-DD`.
+`commands.txt` lines (separated by `|`): `LOAD_VOUCHER_TYPES|file`, `ISSUE_VOUCHERS|file`, `PROCESS_EVENTS|file`, `REPORT|YYYY-MM-DD`.
 
 ## Output
 | File | Content |
@@ -34,10 +35,10 @@ python -m unittest discover -s tests -v      # voucher tests (8 tests)
 | `unused_vouchers.csv` | `voucher_code, type_id, issued_at` for vouchers never activated |
 | `errors.csv` | `event_id, reason` for rejected events |
 
-## Business rules
-BR-01 to BR-13 are listed in `Design_Document.pdf`. Key ones: the 24 h window starts at the first successful LOGIN and
-a LOGIN at exactly 24 h is `EXPIRED`; time is rounded up per session, data per event; idle timeout is 10 minutes;
-revenue counts on the activation date.
+## Business rules and decisions
+BR-01 to BR-13 and the policy decisions D1 to D7 are in `Design_Document.pdf` and `DECISIONS.md`.
+Two policies can be switched at the top of `session_engine.py`: `DATA_ROUND_UP` (data rounding) and
+`USAGE_AFTER_CUTOFF_REASON` (reason for a USAGE event after a cut-off).
 
 ## Sample result
-60 vouchers issued, 53 activated, 7 unused, 13 error records.
+60 vouchers issued, 53 activated, 7 unused, 692 session-log rows, 13 error records.

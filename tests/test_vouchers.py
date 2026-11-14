@@ -55,7 +55,7 @@ class VoucherTests(unittest.TestCase):
         self.assertEqual(m.report_rows("2026-10-15", now), [])
         row = m.report_rows("2026-10-16", now)[0]
         self.assertEqual(row, ["2026-10-16", c, "VT-01", "TIME", "2026-10-16 00:40:00",
-                               "0", "60", 1, "20.00", "ACTIVE"])
+                               0.0, 60.0, 1, 20.0, "ACTIVE"])
         self.assertEqual(len(m.unused_rows()), 59)
 
     def test_exhausted_and_expired_status(self):
